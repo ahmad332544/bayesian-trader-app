@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bayesian Predictor</title>
+    <link rel="stylesheet" href="/frontend/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Statistical Watchlist</h1>
+            <div class="header-controls">
+                <div id="connection-status" class="status-disconnected">● Disconnected</div>
+                <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
+            </div>
+        </header>
+
+        <div class="toolbar">
+            <input type="text" id="symbol-input" placeholder="Add Symbol... (e.g., EURUSD_)">
+            <button id="add-symbol-btn">Add</button>
+        </div>
+
+        <!-- FIX: عنصر جديد لعرض رسائل الحالة -->
+        <div id="status-bar" class="status-bar" style="display: none;"></div>
+
+        <main id="main-content">
+            <table id="watchlist-table">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>M1</th>
+                        <th>M5</th>
+                        <th>M15</th>
+                        <th>M30</th>
+                        <th>H1</th>
+                        <th>H4</th>
+                        <th>D1</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Rows will be dynamically populated by JavaScript -->
+                </tbody>
+            </table>
+        </main>
+    </div>
+
+    <!-- Settings Modal (Hidden by default) -->
+    <div id="settings-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2>Settings</h2>
+            <div class="setting-item">
+                <label for="history-lookback">History Lookback:</label>
+                <input type="number" id="history-lookback" value="2000" disabled>
+                <span>(Future feature)</span>
+            </div>
+            <div class="setting-item">
+                <label for="evidence-threshold">Evidence Strength (%):</label>
+                <!-- FIX: تعديل step لزيادة الدقة -->
+                <input type="range" id="evidence-threshold" min="0" max="20" step="0.1" value="5">
+                <span id="threshold-value">5.0%</span>
+            </div>
+            <div class="modal-actions">
+                <button id="save-settings-btn">Save & Re-calculate</button>
+                <button id="close-settings-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/frontend/script.js"></script>
+</body>
+</html>

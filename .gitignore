@@ -1,0 +1,12 @@
+# Virtual Environment
+venv/
+
+# VS Code settings
+.vscode/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Config file (if it contains sensitive info, otherwise you can remove this line)
+config.json 

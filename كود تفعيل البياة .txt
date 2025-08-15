@@ -1,0 +1,12 @@
+.\venv\Scripts\activate
+
+كود تشغيل بايثون 
+python mt5_connector.py
+
+كود تشغيل الخادم 
+uvicorn main:app --reload
+الجديد 
+python main.py
+
+الهوست الداخلي 
+http://127.0.0.1:8000
