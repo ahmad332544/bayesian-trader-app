@@ -26,3 +26,5 @@ class EngulfingEvidence(BaseEvidence):
         states[bull_engulf] = 1
         states[bear_engulf] = 2
         return states
+    @property
+    def num_states(self) -> int: return 3

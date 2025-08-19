@@ -12,3 +12,6 @@ class DayOfWeekEvidence(BaseEvidence):
         """
         # dayofweek يتجاهل السبت (5) والأحد (6)
         return pd.Series(data.index.dayofweek, index=data.index)
+    
+    @property
+    def num_states(self) -> int: return 5

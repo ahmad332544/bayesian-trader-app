@@ -17,3 +17,6 @@ class PrevThreeCandlesEvidence(BaseEvidence):
         
         # fillna(0) لمعالجة القيم الفارغة في بداية البيانات
         return (p1 + p2 + p3).fillna(0).astype(int)
+    
+    @property
+    def num_states(self) -> int: return 8

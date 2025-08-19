@@ -61,3 +61,6 @@ class MarketStructureEvidence(BaseEvidence):
         
         # تطبيق الحالة على كل الصفوف
         return pd.Series(state, index=data.index)
+    
+    @property
+    def num_states(self) -> int: return 5

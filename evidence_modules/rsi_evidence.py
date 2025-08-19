@@ -12,11 +12,13 @@ class RSIEvidence(BaseEvidence):
             data.ta.rsi(length=14, append=True)
         return data
     
-    @property
-    def num_states(self) -> int: return 3 # 0, 1, 2
+
 
     def get_state(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         if "RSI_14" not in data.columns: return pd.Series(-1, index=data.index)
         conditions = [data["RSI_14"] > 70, data["RSI_14"] < 30]
         choices = [1, 2] # 1=Overbought, 2=Oversold
         return pd.Series(np.select(conditions, choices, default=0), index=data.index)
+    
+    @property
+    def num_states(self) -> int: return 3

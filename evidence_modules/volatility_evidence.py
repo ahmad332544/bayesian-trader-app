@@ -16,6 +16,9 @@ class VolatilityIncreaseEvidence(BaseEvidence):
         atr = data.get('ATRr_14')
         if atr is None: return pd.Series(-1, index=data.index)
         return (atr > atr.shift(1)).astype(int)
+    
+    @property
+    def num_states(self) -> int: return 2
 
 class VolatilityRegimeEvidence(BaseEvidence):
     @property
@@ -35,3 +38,6 @@ class VolatilityRegimeEvidence(BaseEvidence):
         atr_ma = data.get('ATRr_14_MA20')
         if atr is None or atr_ma is None: return pd.Series(-1, index=data.index)
         return (atr > atr_ma).astype(int)
+    
+    @property
+    def num_states(self) -> int: return 2

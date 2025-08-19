@@ -29,3 +29,6 @@ class HTFConfluenceEvidence(BaseEvidence):
         states[is_above] = 0
         states[~is_above] = 1
         return states
+    
+    @property
+    def num_states(self) -> int: return 3

@@ -29,3 +29,6 @@ class StochasticEvidence(BaseEvidence):
         states[overbought] = 1
         states[oversold] = 2
         return states
+    
+    @property
+    def num_states(self) -> int: return 3

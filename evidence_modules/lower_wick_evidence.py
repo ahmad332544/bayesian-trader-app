@@ -17,3 +17,6 @@ class LowerWickEvidence(BaseEvidence):
         
         lower_wick = data[['open', 'close']].min(axis=1) - data['low']
         return (lower_wick > body * 0.5).astype(int)
+    
+    @property
+    def num_states(self) -> int: return 2

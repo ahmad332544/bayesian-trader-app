@@ -16,11 +16,3 @@ class PrevCandleDirEvidence(BaseEvidence):
     
     @property
     def num_states(self) -> int: return 2
-    @property
-    def num_states(self) -> int: return 2
-    @property
-    def num_states(self) -> int: return 2
-    @property
-    def num_states(self) -> int: return 3
-    @property
-    def num_states(self) -> int: return 8

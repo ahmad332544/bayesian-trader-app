@@ -6,6 +6,9 @@ class SessionEvidence(BaseEvidence):
     @property
     def name(self) -> str:
         return "trading_session"
+    
+    @property
+    def num_states(self) -> int: return 5
         
     def get_state(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """

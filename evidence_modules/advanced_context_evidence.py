@@ -22,6 +22,9 @@ class ADXStrengthEvidence(BaseEvidence):
         choices = [2, 1]
         states = np.select(conditions, choices, default=0)
         return pd.Series(states, index=data.index)
+    
+    @property
+    def num_states(self) -> int: return 3
 
 class RoundNumbersEvidence(BaseEvidence):
     @property
@@ -55,3 +58,8 @@ class RoundNumbersEvidence(BaseEvidence):
         states[is_near & ~is_above] = 1
         states[is_near & is_above] = 2
         return states
+    
+    @property
+    def num_states(self) -> int: return 3
+    
+    

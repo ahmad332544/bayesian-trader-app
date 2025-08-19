@@ -73,3 +73,6 @@ class PivotPointsEvidence(BaseEvidence):
             states[is_near & (merged_data['close'] < level)] = 2 # قريب من مقاومة
 
         return states
+    
+    @property
+    def num_states(self) -> int: return 5

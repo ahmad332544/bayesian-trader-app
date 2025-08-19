@@ -43,22 +43,48 @@ header h1 { margin: 0; font-size: 1.5em; color: #fff; }
 #connection-status { font-weight: bold; padding: 5px 10px; border-radius: 5px; }
 .status-connected { color: var(--green-color); }
 .status-disconnected { color: var(--red-color); }
+.icon-btn { background: none; border: none; color: var(--text-color); font-size: 1.5em; cursor: pointer; }
+
+.tabs {
+    display: flex;
+    background-color: var(--bg-color);
+}
+
+.tab-link {
+    padding: 15px 20px;
+    cursor: pointer;
+    background-color: transparent;
+    border: none;
+    color: var(--gray-color);
+    font-size: 1em;
+    font-weight: bold;
+    border-bottom: 3px solid transparent;
+}
+
+.tab-link.active {
+    color: #fff;
+    border-bottom: 3px solid var(--accent-color);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
 .toolbar {
     padding: 15px 25px;
     display: flex;
     gap: 10px;
+    align-items: center;
+    background-color: var(--secondary-color);
 }
 
 .toolbar input {
-    flex-grow: 1;
     padding: 8px 12px;
     border: 1px solid var(--secondary-color);
     background-color: var(--bg-color);
     color: var(--text-color);
     border-radius: 4px;
 }
-
+.toolbar input[type="text"] { flex-grow: 1; }
 .toolbar button, .modal-actions button {
     padding: 8px 15px;
     border: none;
@@ -71,21 +97,23 @@ header h1 { margin: 0; font-size: 1.5em; color: #fff; }
 }
 .toolbar button:hover, .modal-actions button:hover { background-color: #8e44ad; }
 
+.status-bar { padding: 10px 25px; background-color: var(--accent-color); color: white; font-weight: bold; text-align: center; transition: opacity 0.5s ease; }
+
 main {
     padding: 0 25px 25px 25px;
-    max-height: 70vh; /* تحديد ارتفاع أقصى */
-    overflow-y: auto; /* إضافة شريط تمرير عند الحاجة */
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
-#watchlist-table {
+table {
     width: 100%;
     border-collapse: collapse;
     text-align: center;
 }
 
-#watchlist-table th, #watchlist-table td { padding: 12px; border: 1px solid var(--secondary-color); }
-#watchlist-table thead { background-color: var(--secondary-color); font-weight: bold; color: #fff; position: sticky; top: 0; }
-#watchlist-table tbody tr:nth-child(even) { background-color: #27272b; }
+table th, table td { padding: 12px; border: 1px solid var(--secondary-color); }
+table thead { background-color: var(--secondary-color); font-weight: bold; color: #fff; position: sticky; top: 0; z-index: 10; }
+table tbody tr:nth-child(even) { background-color: #27272b; }
 
 .symbol-cell { text-align: right; }
 .symbol-name { font-weight: bold; font-size: 1.1em; }
@@ -95,24 +123,17 @@ main {
 .prob-up { color: var(--green-color); }
 .prob-down { color: var(--red-color); }
 .prob-container { display: flex; justify-content: center; gap: 10px; align-items: center; }
-.evidence-count { font-size: 0.8em; color: var(--gray-color); display: block; margin-top: 4px; }
+.evidence-count { font-size: 0.8em; color: var(--gray-color); display: block; margin-top: 4px; cursor: help; }
 .loading-cell::after { content: '...'; animation: blink 1s infinite; }
 @keyframes blink { 50% { opacity: 0; } }
+.empty-watchlist td { padding: 40px; color: var(--gray-color); }
 
-/* --- أنماط النافذة المنبثقة --- */
+/* --- Modal Styles --- */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-.modal-content { background-color: var(--primary-color); padding: 30px; border-radius: 8px; width: 400px; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+.modal-content { background-color: var(--primary-color); padding: 30px; border-radius: 8px; width: 450px; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
 .modal-content h2 { margin-top: 0; }
 .setting-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .setting-item label { flex-basis: 50%; }
 .setting-item input[type="range"] { flex-grow: 1; }
+.setting-item input[type="number"] { width: 100px; }
 .modal-actions { text-align: left; margin-top: 30px; }
-
-.status-bar {
-    padding: 10px 25px;
-    background-color: var(--accent-color);
-    color: white;
-    font-weight: bold;
-    text-align: center;
-    transition: opacity 0.5s ease;
-}

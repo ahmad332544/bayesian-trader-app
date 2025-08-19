@@ -6,6 +6,9 @@ class PinBarEvidence(BaseEvidence):
     @property
     def name(self) -> str:
         return "pin_bar"
+    
+    @property
+    def num_states(self) -> int: return 3
 
     def get_state(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """
@@ -30,6 +33,8 @@ class CandleCharacterEvidence(BaseEvidence):
     @property
     def name(self) -> str:
         return "candle_character"
+    @property
+    def num_states(self) -> int: return 5
 
     def get_state(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """

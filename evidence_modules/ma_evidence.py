@@ -11,6 +11,8 @@ class AboveMASlowEvidence(BaseEvidence):
     def get_state(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         if 'EMA_20' not in data.columns: return pd.Series(-1, index=data.index)
         return (data['close'] > data['EMA_20']).astype(int)
+    @property
+    def num_states(self) -> int: return 2
 
 class MACrossEvidence(BaseEvidence):
     @property
@@ -27,6 +29,9 @@ class MACrossEvidence(BaseEvidence):
         states = pd.Series(0, index=data.index)
         states[bull_cross] = 1; states[bear_cross] = 2
         return states
+    
+    @property
+    def num_states(self) -> int: return 3
 
 class AboveEMA50Evidence(BaseEvidence):
     @property
@@ -37,6 +42,9 @@ class AboveEMA50Evidence(BaseEvidence):
     def get_state(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         if 'EMA_50' not in data.columns: return pd.Series(-1, index=data.index)
         return (data['close'] > data['EMA_50']).astype(int)
+    
+    @property
+    def num_states(self) -> int: return 2
 
 class AboveEMA100Evidence(BaseEvidence):
     @property
@@ -47,6 +55,9 @@ class AboveEMA100Evidence(BaseEvidence):
     def get_state(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         if 'EMA_100' not in data.columns: return pd.Series(-1, index=data.index)
         return (data['close'] > data['EMA_100']).astype(int)
+    
+    @property
+    def num_states(self) -> int: return 2
 
 class AboveEMA200Evidence(BaseEvidence):
     @property
@@ -58,13 +69,5 @@ class AboveEMA200Evidence(BaseEvidence):
         if 'EMA_200' not in data.columns: return pd.Series(-1, index=data.index)
         return (data['close'] > data['EMA_200']).astype(int)
     
-    @property
-    def num_states(self) -> int: return 2
-    @property
-    def num_states(self) -> int: return 3
-    @property
-    def num_states(self) -> int: return 2
-    @property
-    def num_states(self) -> int: return 2
     @property
     def num_states(self) -> int: return 2

@@ -18,3 +18,6 @@ class UpperWickEvidence(BaseEvidence):
         
         upper_wick = data['high'] - data[['open', 'close']].max(axis=1)
         return (upper_wick > body * 0.5).astype(int)
+    
+    @property
+    def num_states(self) -> int: return 2

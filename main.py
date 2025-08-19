@@ -11,15 +11,19 @@ from data_engine import DataEngine
 from bayesian_engine import BayesianEngine
 import uvicorn
 
+# --- 1. حاوية لتخزين الكائنات الرئيسية ---
 class AppState:
     def __init__(self):
         self.bayesian_engine: BayesianEngine = None
         self.mt5_connector: MT5Connector = None
         self.data_engine: DataEngine = None
-        self.config = {}; self.data_cache = {}; self.active_connections = set()
+        self.config = {}
+        self.data_cache = {}
+        self.active_connections = set()
 
 state = AppState()
 
+# --- 2. Lifespan لإدارة بدء التشغيل والإغلاق ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("--- Application Startup ---")
@@ -28,6 +32,7 @@ async def lifespan(app: FastAPI):
     state.data_engine = DataEngine(state.mt5_connector)
     load_config()
     state.bayesian_engine.threshold = state.config.get('settings', {}).get('evidence_threshold', 0.05)
+    
     asyncio.create_task(train_and_run_main_loop())
     asyncio.create_task(broadcast_loop())
     yield
@@ -37,15 +42,19 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
+# --- 3. بقية الكود ---
 CONFIG_FILE = "config.json"
+
 def load_config():
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f: state.config = json.load(f)
     except FileNotFoundError:
         state.config = {"watchlist": ["EURUSD_", "GBPUSD_", "USDJPY_"], "settings": {"history_lookback": 2000, "evidence_threshold": 0.05}}
         save_config()
+
 def save_config():
     with open(CONFIG_FILE, "w", encoding="utf-8") as f: json.dump(state.config, f, indent=4)
+
 async def notify_all_clients(message: dict):
     if state.active_connections:
         for connection in list(state.active_connections):
@@ -53,17 +62,22 @@ async def notify_all_clients(message: dict):
             except Exception: state.active_connections.discard(connection)
 
 async def train_and_run_main_loop():
-    symbol_to_train = state.config['watchlist'][0] if state.config.get('watchlist') else "EURUSD_"
     lookback = state.config.get('settings', {}).get('history_lookback', 2000)
     timeframes_to_train = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"]
 
-    for tf in timeframes_to_train:
-        await notify_all_clients({"type": "status_update", "payload": f"Training for {tf}..."})
-        historical_data = state.data_engine.get_raw_data(symbol_to_train, tf, lookback)
-        state.bayesian_engine.train(tf, historical_data, symbol_to_train)
+    # --- FIX: التدريب الآن يتم لكل زوج ولكل إطار زمني ---
+    for symbol in state.config.get('watchlist', []):
+        for tf in timeframes_to_train:
+            await notify_all_clients({"type": "status_update", "payload": f"Training {symbol} on {tf}..."})
+            historical_data = state.data_engine.get_raw_data(symbol, tf, lookback)
+            if not historical_data.empty:
+                state.bayesian_engine.train(symbol, tf, historical_data)
+            else:
+                state.bayesian_engine.log_message(f"Could not fetch training data for {symbol}/{tf}", "WARNING")
     
-    await notify_all_clients({"type": "status_update", "payload": "All timeframes trained. Starting live data feed..."})
+    await notify_all_clients({"type": "status_update", "payload": "Initial training complete. Starting live feed..."})
 
+    # حلقة العمل الرئيسية
     while True:
         try:
             current_watchlist = state.config.get("watchlist", [])
@@ -74,10 +88,11 @@ async def train_and_run_main_loop():
                 if not daily_data_raw.empty:
                     all_predictions[symbol]['daily_status'] = 'up' if daily_data_raw.iloc[-1]['close'] > daily_data_raw.iloc[-1]['open'] else 'down'
                 else: all_predictions[symbol]['daily_status'] = 'neutral'
+                
                 for tf in timeframes_to_train:
                     latest_data_raw = state.data_engine.get_raw_data(symbol, tf, 300)
                     if not latest_data_raw.empty:
-                        prediction = state.bayesian_engine.predict(tf, latest_data_raw, symbol)
+                        prediction = state.bayesian_engine.predict(symbol, tf, latest_data_raw)
                         all_predictions[symbol][tf] = prediction
                     else: all_predictions[symbol][tf] = {"error": "No data"}
             state.data_cache = all_predictions
@@ -115,6 +130,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 if symbol and symbol not in state.config['watchlist']:
                     state.config['watchlist'].append(symbol)
                     save_config()
+                    # لا نعيد التدريب عند إضافة رمز جديد، سيبدأ التنبؤ به في الدورة التالية
                     await notify_all_clients({"type": "initial_config", "payload": {"watchlist": state.config['watchlist'], "settings": {"evidenceThreshold": state.bayesian_engine.threshold}}})
             if data['type'] == 'update_settings':
                 new_threshold = float(data['payload']['threshold'])
