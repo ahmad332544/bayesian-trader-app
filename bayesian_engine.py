@@ -9,15 +9,9 @@ class BayesianEngine:
     def __init__(self, evidence_strength_threshold: float = 0.05):
         self.log = []
         self.evidence_modules = self._load_evidence_modules()
-        
-        # --- FIX: هياكل بيانات متعددة الأبعاد (لكل زوج ولكل إطار زمني) ---
-        # self.priors['EURUSD_']['H1'] = {'up': 0.52, 'down': 0.48}
         self.priors = {}
-        # self.likelihoods['EURUSD_']['H1']['rsi_evidence'] = {0: {...}}
         self.likelihoods = {}
-        # self.is_trained['EURUSD_']['H1'] = True
         self.is_trained = {}
-        
         self.threshold = evidence_strength_threshold
         self.log_message(f"BayesianEngine: Loaded {len(self.evidence_modules)} evidence modules.")
 
@@ -56,29 +50,21 @@ class BayesianEngine:
 
     def train(self, symbol: str, timeframe: str, data: pd.DataFrame):
         self.log_message(f"Starting training for SYMBOL: {symbol}, TIMEFRAME: {timeframe}")
-        
         enriched_data = self.get_enriched_data(data, symbol)
-        
         if enriched_data.empty or len(enriched_data) < 50:
             self.log_message(f"Training failed for {symbol}/{timeframe}: Not enough data.", "ERROR"); return
         
         enriched_data['next_candle_up'] = (enriched_data['close'].shift(-1) > enriched_data['open'].shift(-1)).astype(float)
         enriched_data.dropna(subset=['next_candle_up'], inplace=True)
-
-        total_up = enriched_data['next_candle_up'].sum()
-        total_down = len(enriched_data) - total_up
-
+        total_up = enriched_data['next_candle_up'].sum(); total_down = len(enriched_data) - total_up
         if total_up == 0 or total_down == 0:
-            self.log_message(f"Training failed for {symbol}/{timeframe}: No up/down outcomes in historical data.", "ERROR"); return
+            self.log_message(f"Training failed for {symbol}/{timeframe}: No up/down outcomes.", "ERROR"); return
 
-        # تهيئة القواميس إذا لم تكن موجودة
         if symbol not in self.priors: self.priors[symbol] = {}
         if symbol not in self.likelihoods: self.likelihoods[symbol] = {}
         if symbol not in self.is_trained: self.is_trained[symbol] = {}
 
         self.priors[symbol][timeframe] = {'up': total_up / len(enriched_data), 'down': total_down / len(enriched_data)}
-        self.log_message(f"Priors for {symbol}/{timeframe}: P(Up)={self.priors[symbol][timeframe]['up']:.2f}, P(Down)={self.priors[symbol][timeframe]['down']:.2f}")
-
         self.likelihoods[symbol][timeframe] = {}
 
         for module in self.evidence_modules:
@@ -86,18 +72,15 @@ class BayesianEngine:
                 num_states = module.num_states
                 states = module.get_state(enriched_data, symbol)
                 if states is None or states.isnull().all(): continue
-
                 self.likelihoods[symbol][timeframe][module.name] = {}
                 temp_df = pd.DataFrame({'state': states, 'outcome': enriched_data['next_candle_up']}).dropna()
                 counts = temp_df.groupby('state')['outcome'].value_counts().unstack(fill_value=0)
-                
                 for state in range(num_states):
                     if state == -1: continue
                     row = counts.loc[state] if state in counts.index else pd.Series([0, 0], index=[0.0, 1.0])
                     p_given_up = (row.get(1.0, 0) + 1) / (total_up + num_states)
                     p_given_down = (row.get(0.0, 0) + 1) / (total_down + num_states)
                     self.likelihoods[symbol][timeframe][module.name][int(state)] = {'p_up': p_given_up, 'p_down': p_given_down}
-                
             except Exception:
                 self.log_message(f"Failed to train evidence '{module.name}' on {symbol}/{timeframe}. Details: {traceback.format_exc()}", "ERROR")
 
@@ -109,38 +92,28 @@ class BayesianEngine:
         if latest_data.empty: return {"error": "No data"}
         
         enriched_data = self.get_enriched_data(latest_data, symbol)
-
-        posterior_up = self.priors[symbol][timeframe]['up']
-        posterior_down = self.priors[symbol][timeframe]['down']
+        posterior_up = self.priors[symbol][timeframe]['up']; posterior_down = self.priors[symbol][timeframe]['down']
         used_count = 0; ignored_count = 0; ignored_reasons = []
 
         for module in self.evidence_modules:
             reason = None
             try:
                 current_state = module.get_state(enriched_data, symbol).iloc[-1]
-                if pd.isna(current_state) or current_state == -1:
-                    reason = "No valid state (NaN or -1)"
+                if pd.isna(current_state) or current_state == -1: reason = "No valid state (NaN or -1)"
                 else:
                     probs = self.likelihoods.get(symbol, {}).get(timeframe, {}).get(module.name, {}).get(int(current_state))
                     if probs:
                         if abs(probs['p_up'] - probs['p_down']) > self.threshold:
-                            posterior_up *= probs['p_up']
-                            posterior_down *= probs['p_down']
-                            used_count += 1
+                            posterior_up *= probs['p_up']; posterior_down *= probs['p_down']; used_count += 1
                         else: reason = "Weak signal"
                     else: reason = "Untrained state"
             except Exception as e:
-                reason = "Execution error"
-                self.log_message(f"Prediction error in '{module.name}' on {symbol}/{timeframe}: {e}", "ERROR")
-
-            if reason:
-                ignored_count += 1
-                ignored_reasons.append(f"{module.name}: {reason}")
+                reason = "Execution error"; self.log_message(f"Prediction error in '{module.name}' on {symbol}/{timeframe}: {e}", "ERROR")
+            if reason: ignored_count += 1; ignored_reasons.append(f"{module.name}: {reason}")
         
         total_posterior = posterior_up + posterior_down
         final_up, final_down = (50.0, 50.0)
         if total_posterior > 1e-30:
             final_up = (posterior_up / total_posterior) * 100
             final_down = (posterior_down / total_posterior) * 100
-
         return {"up_prob": final_up, "down_prob": final_down, "used_evidence": used_count, "ignored_evidence": ignored_count, "ignored_details": ignored_reasons}
