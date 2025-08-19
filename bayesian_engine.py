@@ -1,20 +1,20 @@
 # bayesian_engine.py
 import pandas as pd
 import numpy as np
+import traceback
 import pkgutil
 import importlib
-import traceback
 
 class BayesianEngine:
     def __init__(self, evidence_strength_threshold: float = 0.05):
-        self.evidence_modules = self._load_evidence_modules()
-        self.prior_up = 0.5
-        self.prior_down = 0.5
-        self.likelihoods = {}
-        self.is_trained = False
-        self.threshold = evidence_strength_threshold
+        # FIX: تهيئة log أولاً
         self.log = []
-        self.log_message(f"BayesianEngine: Loaded {len(self.evidence_modules)} evidence modules successfully.")
+        self.evidence_modules = self._load_evidence_modules()
+        self.priors = {}
+        self.likelihoods = {}
+        self.is_trained = {}
+        self.threshold = evidence_strength_threshold
+        self.log_message(f"BayesianEngine: Loaded {len(self.evidence_modules)} evidence modules.")
 
     def log_message(self, message: str, level: str = "INFO"):
         log_entry = f"[{pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}] [{level}] {message}"
@@ -27,7 +27,6 @@ class BayesianEngine:
         try:
             from base_evidence import BaseEvidence
             import evidence_modules
-            
             for _, module_name, _ in pkgutil.iter_modules(evidence_modules.__path__, "evidence_modules."):
                 try:
                     module = importlib.import_module(module_name)
@@ -41,92 +40,71 @@ class BayesianEngine:
             self.log_message(f"Could not load evidence modules package. Error: {e}", "CRITICAL")
         return modules
 
-    def get_all_requirements(self) -> list[dict]:
-        all_reqs = []
+    def get_enriched_data(self, data: pd.DataFrame, symbol: str) -> pd.DataFrame:
+        enriched_df = data.copy()
         for module in self.evidence_modules:
-            try: all_reqs.extend(module.declare_requirements())
-            except Exception: self.log_message(f"Failed to get requirements from '{module.name}'", "ERROR")
+            try: enriched_df = module.add_indicator(enriched_df, symbol)
+            except Exception: self.log_message(f"Error in add_indicator for '{module.name}'. Details: {traceback.format_exc()}", "ERROR")
+        return enriched_df
+
+    def train(self, timeframe: str, data: pd.DataFrame, symbol: str):
+        self.log_message(f"Starting training for TIMEFRAME: {timeframe} on symbol: {symbol}")
+        enriched_data = self.get_enriched_data(data, symbol)
         
-        unique_reqs = [dict(t) for t in {tuple(sorted(d.items())) for d in all_reqs}]
-        return unique_reqs
-
-    def train(self, data: pd.DataFrame):
-        self.log_message("Starting training process...")
-        if data.empty or len(data) < 50: # Increased minimum size
-            self.log_message("Training failed: Not enough data.", "ERROR")
-            return
-            
-        data['next_candle_up'] = (data['close'].shift(-1) > data['open'].shift(-1)).astype(float)
-        data.dropna(inplace=True)
-
-        total_up = data['next_candle_up'].sum()
-        total_down = len(data) - total_up
-
+        if enriched_data.empty or len(enriched_data) < 50:
+            self.log_message(f"Training failed for {timeframe}: Not enough data.", "ERROR"); return
+        
+        enriched_data['next_candle_up'] = (enriched_data['close'].shift(-1) > enriched_data['open'].shift(-1)).astype(float)
+        enriched_data.dropna(subset=['next_candle_up'], inplace=True)
+        total_up = enriched_data['next_candle_up'].sum(); total_down = len(enriched_data) - total_up
         if total_up == 0 or total_down == 0:
-            self.log_message("Training failed: No up/down outcomes in historical data.", "ERROR")
-            return
+            self.log_message(f"Training failed for {timeframe}: No up/down outcomes.", "ERROR"); return
 
-        self.prior_up = total_up / len(data)
-        self.prior_down = total_down / len(data)
-        self.log_message(f"Priors calculated: P(Up)={self.prior_up:.2f}, P(Down)={self.prior_down:.2f}")
-
+        self.priors[timeframe] = {'up': total_up / len(enriched_data), 'down': total_down / len(enriched_data)}
+        self.log_message(f"Priors for {timeframe}: P(Up)={self.priors[timeframe]['up']:.2f}, P(Down)={self.priors[timeframe]['down']:.2f}")
+        self.likelihoods[timeframe] = {}
         for module in self.evidence_modules:
             try:
-                states = module.get_state(data)
-                if states is None or states.isnull().all():
-                    self.log_message(f"Skipping training for '{module.name}': No valid states returned.", "WARNING")
-                    continue
-
-                self.likelihoods[module.name] = {}
-                counts = data.groupby(states)['next_candle_up'].value_counts().unstack(fill_value=0)
-                all_possible_states = states.dropna().unique()
-                num_states = len(all_possible_states)
-
-                for state in all_possible_states:
+                num_states = module.num_states
+                states = module.get_state(enriched_data, symbol)
+                if states is None or states.isnull().all(): continue
+                self.likelihoods[timeframe][module.name] = {}
+                temp_df = pd.DataFrame({'state': states, 'outcome': enriched_data['next_candle_up']}).dropna()
+                counts = temp_df.groupby('state')['outcome'].value_counts().unstack(fill_value=0)
+                for state in range(num_states):
+                    if state == -1: continue
                     row = counts.loc[state] if state in counts.index else pd.Series([0, 0], index=[0.0, 1.0])
                     p_given_up = (row.get(1.0, 0) + 1) / (total_up + num_states)
                     p_given_down = (row.get(0.0, 0) + 1) / (total_down + num_states)
-                    self.likelihoods[module.name][int(state)] = {'p_up': p_given_up, 'p_down': p_given_down}
-                
-                self.log_message(f"Successfully trained evidence: {module.name}")
+                    self.likelihoods[timeframe][module.name][int(state)] = {'p_up': p_given_up, 'p_down': p_given_down}
+                self.log_message(f"Successfully trained evidence: {module.name} for {timeframe}")
+            except Exception: self.log_message(f"Failed to train '{module.name}' on {timeframe}. Details: {traceback.format_exc()}", "ERROR")
+        self.is_trained[timeframe] = True
+        self.log_message(f"Training for {timeframe} completed successfully.")
 
-            except Exception:
-                self.log_message(f"Failed to train evidence '{module.name}'. Error: {traceback.format_exc()}", "ERROR")
-
-        self.is_trained = True
-        self.log_message("Training process completed successfully.")
-
-    def predict(self, latest_data: pd.DataFrame) -> dict:
-        if not self.is_trained: return {"error": "Engine not trained"}
+    def predict(self, timeframe: str, latest_data: pd.DataFrame, symbol: str) -> dict:
+        if not self.is_trained.get(timeframe, False): return {"error": f"Engine not trained for {timeframe}"}
         if latest_data.empty: return {"error": "No data"}
-
-        posterior_up = self.prior_up
-        posterior_down = self.prior_down
-        used_count = 0
-        ignored_count = 0
-
+        enriched_data = self.get_enriched_data(latest_data, symbol)
+        posterior_up = self.priors[timeframe]['up']; posterior_down = self.priors[timeframe]['down']
+        used_count = 0; ignored_count = 0; ignored_reasons = []
         for module in self.evidence_modules:
+            reason = None
             try:
-                current_state = module.get_state(latest_data).iloc[-1]
-                if pd.isna(current_state):
-                    ignored_count += 1
-                    continue
-                
-                probs = self.likelihoods.get(module.name, {}).get(int(current_state))
-                
-                if probs:
-                    if abs(probs['p_up'] - probs['p_down']) > self.threshold:
-                        posterior_up *= probs['p_up']
-                        posterior_down *= probs['p_down']
-                        used_count += 1
-                    else: ignored_count += 1
-                else: ignored_count += 1
-            except Exception: ignored_count += 1
-        
+                current_state = module.get_state(enriched_data, symbol).iloc[-1]
+                if pd.isna(current_state) or current_state == -1: reason = "No valid state (NaN or -1)"
+                else:
+                    probs = self.likelihoods.get(timeframe, {}).get(module.name, {}).get(int(current_state))
+                    if probs:
+                        if abs(probs['p_up'] - probs['p_down']) > self.threshold:
+                            posterior_up *= probs['p_up']; posterior_down *= probs['p_down']; used_count += 1
+                        else: reason = "Weak signal"
+                    else: reason = "Untrained state"
+            except Exception as e: reason = "Execution error"; self.log_message(f"Prediction error in '{module.name}' on {timeframe}: {e}", "ERROR")
+            if reason: ignored_count += 1; ignored_reasons.append(f"{module.name}: {reason}")
         total_posterior = posterior_up + posterior_down
-        if total_posterior > 1e-12:
+        final_up, final_down = (50.0, 50.0)
+        if total_posterior > 1e-30:
             final_up = (posterior_up / total_posterior) * 100
             final_down = (posterior_down / total_posterior) * 100
-        else: final_up, final_down = 50.0, 50.0
-
-        return {"up_prob": final_up, "down_prob": final_down, "used_evidence": used_count, "ignored_evidence": ignored_count}
+        return {"up_prob": final_up, "down_prob": final_down, "used_evidence": used_count, "ignored_evidence": ignored_count, "ignored_details": ignored_reasons}

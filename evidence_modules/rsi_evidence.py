@@ -1,45 +1,22 @@
 import pandas as pd
 import numpy as np
-from base_evidence import BaseEvidence # نستورد القالب
+from base_evidence import BaseEvidence
+import pandas_ta as ta
 
 class RSIEvidence(BaseEvidence):
-    """
-    دليل يقيس حالة مؤشر RSI (تشبع شرائي، تشبع بيعي، أو عادي).
-    """
-
     @property
-    def name(self) -> str:
-        return "rsi_14_ob_os" # اسم فريد: مؤشر، فترة، منطق
+    def name(self) -> str: return "rsi_14_ob_os"
+    
+    def add_indicator(self, data: pd.DataFrame, symbol: str) -> pd.DataFrame:
+        if "RSI_14" not in data.columns:
+            data.ta.rsi(length=14, append=True)
+        return data
+    
+    @property
+    def num_states(self) -> int: return 3 # 0, 1, 2
 
-    def declare_requirements(self) -> list[dict]:
-        # هذا الدليل يحتاج فقط إلى مؤشر RSI بفترة 14
-        return [
-            {"kind": "rsi", "length": 14}
-        ]
-
-    def get_state(self, data: pd.DataFrame) -> pd.Series:
-        # اسم العمود الذي سيتم إنشاؤه بواسطة DataEngine هو 'RSI_14'
-        rsi_column = "RSI_14"
-
-        # التأكد من وجود العمود المطلوب
-        if rsi_column not in data.columns:
-            # إذا لم يكن العمود موجودًا، نعيد سلسلة من الحالات "غير معروفة" (-1)
-            return pd.Series(-1, index=data.index)
-
-        # تعريف الحالات
-        # الحالة 0: عادي (Normal)
-        # الحالة 1: تشبع شرائي (Overbought)
-        # الحالة 2: تشبع بيعي (Oversold)
-        
-        # استخدام np.select لتطبيق الشروط بكفاءة عالية
-        conditions = [
-            data[rsi_column] > 70,
-            data[rsi_column] < 30
-        ]
-        choices = [1, 2] # 1 لـ > 70, و 2 لـ < 30
-        
-        # np.select(شروط, اختيارات, القيمة_الافتراضية)
-        states = np.select(conditions, choices, default=0)
-
-        # تحويل النتيجة إلى سلسلة Pandas
-        return pd.Series(states, index=data.index)
+    def get_state(self, data: pd.DataFrame, symbol: str) -> pd.Series:
+        if "RSI_14" not in data.columns: return pd.Series(-1, index=data.index)
+        conditions = [data["RSI_14"] > 70, data["RSI_14"] < 30]
+        choices = [1, 2] # 1=Overbought, 2=Oversold
+        return pd.Series(np.select(conditions, choices, default=0), index=data.index)

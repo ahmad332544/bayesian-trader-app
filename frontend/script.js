@@ -112,12 +112,19 @@ document.addEventListener("DOMContentLoaded", () => {
                     cell.classList.remove("loading-cell");
                     const prediction = data[symbol][tf];
                     if (prediction && !prediction.error) {
+                        const ignored_reasons = prediction.ignored_details || [];
+                        const ignored_title = ignored_reasons.length > 0
+                            ? `Ignored Reasons:\n- ${ignored_reasons.join('\n- ')}`
+                            : 'All available evidence was used.';
+
                         cell.innerHTML = `
                             <div class="prob-container">
                                 <span class="prob-up">${prediction.up_prob.toFixed(1)}%</span>
                                 <span class="prob-down">${prediction.down_prob.toFixed(1)}%</span>
                             </div>
-                            <span class="evidence-count">${prediction.used_evidence}/${prediction.used_evidence + prediction.ignored_evidence}</span>
+                            <span class="evidence-count" title="${ignored_title}">
+                                ${prediction.used_evidence}/${prediction.used_evidence + prediction.ignored_evidence}
+                            </span>
                         `;
                     } else {
                         cell.textContent = "N/A";

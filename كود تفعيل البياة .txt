@@ -10,3 +10,7 @@ python main.py
 
 الهوست الداخلي 
 http://127.0.0.1:8000
+
+  git config --global user.email "ahmadalmnswer@gmail.com"
+  git config --global user.name "ahmad332544"
+  git remote add origin https://github.com/ahmad332544/bayesian-trader-app.git
