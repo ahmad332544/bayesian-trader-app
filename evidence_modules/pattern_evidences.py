@@ -4,37 +4,30 @@ from base_evidence import BaseEvidence
 import pandas_ta as ta
 
 class BasePatternEvidence(BaseEvidence):
-    """
-    قالب داخلي لتبسيط كود نماذج الشموع.
-    هذه النسخة المحسنة تضمن عمل الدليل حتى لو لم يتم العثور على نماذج.
-    """
     pattern_name: str = ""
     
     @property
     def name(self) -> str: return f"pattern_{self.pattern_name}"
     @property
-    def num_states(self) -> int: return 3 # 0=None, 1=Bullish, 2=Bearish
+    def num_states(self) -> int: return 3
 
     def add_indicator(self, data: pd.DataFrame, symbol: str) -> pd.DataFrame:
-        # نقوم بإضافة المؤشر هنا. pandas-ta قد لا يضيف العمود إذا لم يجد أي تطابق.
-        # لذا، سنتحقق من وجوده في get_state.
-        data.ta.cdl_pattern(name=self.pattern_name, append=True)
+        if not any(col.startswith("CDL_") for col in data.columns):
+            print("Calculating all candlestick patterns using TA-Lib...")
+            # --- FIX: إجبار استخدام TA-Lib ---
+            data.ta.cdl_pattern(name="all", append=True, talib=True)
         return data
         
     def get_state(self, data: pd.DataFrame, symbol: str) -> pd.Series:
-        # البحث عن اسم العمود الصحيح الذي تم إنشاؤه
         target_col = None
+        # البحث عن اسم العمود الصحيح
         for col in data.columns:
             if col.startswith(f"CDL_{self.pattern_name.upper()}"):
                 target_col = col
                 break
         
-        # --- FIX: التعامل مع حالة عدم العثور على العمود ---
-        # إذا لم يقم pandas-ta بإنشاء العمود، فهذا يعني عدم وجود أي نموذج.
-        if target_col is None:
-            # في هذه الحالة، كل الحالات هي "0" (لا يوجد نموذج)
-            return pd.Series(0, index=data.index)
-        # --- نهاية التصحيح ---
+        if target_col is None or target_col not in data.columns:
+            return pd.Series(0, index=data.index) # إرجاع 0 (لا يوجد نموذج) بدلاً من -1
 
         signal = data[target_col]
         states = pd.Series(0, index=data.index)
